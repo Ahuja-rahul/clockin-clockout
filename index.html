@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Time Tracker</title>
+  <meta property="og:image" content="https://assets.churchofjesuschrist.org/70/52/7052231aa159fa6bde323723591fa1402240a0941061391/heart.jpeg">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    input[type="time"], input[type="date"] {
+      width: 100%;
+    }
+
+    .checkbox-group {
+      margin-top: 10px;
+    }
+
+    button {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Time Tracker</h1>
+    <div class="form-group">
+      <label for="clockInTime">Clock-In Time:</label>
+      <input type="time" id="clockInTime" required>
+    </div>
+    <div class="form-group">
+      <label for="clockOutTime">Clock-Out Time:</label>
+      <input type="time" id="clockOutTime" required>
+    </div>
+    <div class="form-group">
+      <label for="holidayCheckbox">Holiday:</label>
+      <input type="checkbox" id="holidayCheckbox">
+    </div>
+    <div class="form-group">
+      <label for="selectedDate">Date:</label>
+      <input type="date" id="selectedDate" required>
+    </div>
+    <button onclick="saveTime()">Save Time</button>
+
+    <h2>Total Hours Calculation</h2>
+    <div class="form-group">
+      <label for="startDate">Start Date:</label>
+      <input type="date" id="startDate" required>
+    </div>
+    <div class="form-group">
+      <label for="endDate">End Date:</label>
+      <input type="date" id="endDate" required>
+    </div>
+    <button onclick="calculateTotalHours()">Get Total Hours</button>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.1/firebase-database.js"></script>
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+            apiKey: "AIzaSyBRAirFkGnQG0_aIYmBAb9Ukq_0xL87Vqc",
+            authDomain: "clockin-clockout-925a0.firebaseapp.com",
+            databaseURL: "https://clockin-clockout-925a0-default-rtdb.firebaseio.com",
+            projectId: "clockin-clockout-925a0",
+            storageBucket: "clockin-clockout-925a0.appspot.com",
+            messagingSenderId: "978637924035",
+            appId: "1:978637924035:web:bdc8b9ff8a74acbc612476",
+            measurementId: "G-FR7DRVKR4D"
+        };
+
+
+    firebase.initializeApp(firebaseConfig);
+
+    function getCurrentDate() {
+      var now = new Date();
+      var year = now.getFullYear();
+      var month = (now.getMonth() + 1).toString().padStart(2, '0');
+      var day = now.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      var selectedDateInput = document.getElementById("selectedDate");
+      selectedDateInput.value = getCurrentDate();
+    });
+
+    function saveTime() {
+      var clockInTime = document.getElementById('clockInTime').value;
+      var clockOutTime = document.getElementById('clockOutTime').value;
+      var isHoliday = document.getElementById('holidayCheckbox').checked;
+      var hoursWorked = isHoliday ? 0 : calculateHoursWorked(clockInTime, clockOutTime);
+      var selectedDate = document.getElementById('selectedDate').value;
+
+      var timeData = {
+        clockInTime: clockInTime,
+        clockOutTime: clockOutTime,
+        isHoliday: isHoliday,
+        hoursWorked: hoursWorked
+      };
+
+      firebase
+        .database()
+        .ref('time/' + selectedDate)
+        .set(timeData)
+        .then(function () {
+          alert('Time saved successfully!');
+        })
+        .catch(function (error) {
+          alert('An error occurred: ' + error.message);
+        });
+    }
+
+    function calculateHoursWorked(clockInTime, clockOutTime) {
+      var clockIn = new Date('1970-01-01T' + clockInTime);
+      var clockOut = new Date('1970-01-01T' + clockOutTime);
+
+      var timeDiff = clockOut.getTime() - clockIn.getTime();
+      var hoursWorked = Math.floor(timeDiff / 1000 / 60 / 60);
+
+      return hoursWorked;
+    }
+
+    async function calculateTotalHours() {
+      var startDate = document.getElementById('startDate').value;
+      var endDate = document.getElementById('endDate').value;
+
+      var startDateObj = new Date(startDate);
+      var endDateObj = new Date(endDate);
+
+      var currentDate = new Date(startDate);
+      var totalHours = 0;
+
+      while (currentDate <= endDateObj) {
+        var formattedDate = currentDate.toISOString().split('T')[0];
+
+        try {
+          var snapshot = await firebase.database().ref('time/' + formattedDate).once('value');
+          var timeData = snapshot.val();
+
+          if (timeData && !timeData.isHoliday) {
+            totalHours += timeData.hoursWorked;
+          }
+        } catch (error) {
+          console.log('An error occurred while fetching data:', error);
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      alert('Total hours between ' + startDate + ' and ' + endDate + ': ' + totalHours);
+    }
+  </script>
+</body>
+</html>
